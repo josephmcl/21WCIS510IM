@@ -1,3 +1,6 @@
+''' simple.py contains the code use to perform the simple routing scheme
+experiment. 
+'''
 import sys, os, socket, time, datetime, random, string, enum
 
 handoff = datetime.datetime(2021, 3, 14, 3, 25)

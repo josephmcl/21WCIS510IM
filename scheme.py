@@ -1,3 +1,6 @@
+''' scheme.py contains the code use to perform the xGrid routing scheme
+experiment. 
+'''
 import sys, os, socket, time, datetime, random, string, enum
 
 handoff = datetime.datetime(2021, 3, 14, 4, 6)
