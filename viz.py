@@ -350,11 +350,6 @@ def main():
         satlat, satlon = plot_kaorbits()
         plot_crossgrid(satlat, satlon)
         plt.show()
-    elif viz == 'xgrid':
-        loadmap()
-        satlat, satlon = plot_kaorbits()
-        plot_crossgrid(satlat, satlon)
-        plt.show()
     elif viz == 'pop':
         plot_popovertime()
         plt.show()
