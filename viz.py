@@ -4,6 +4,7 @@ import matplotlib.image as mpimg
 from matplotlib.patches import Ellipse
 from ephem import *
 from datetime import datetime, timedelta
+import sys
 
 dt = datetime.now()
 
@@ -11,13 +12,9 @@ grid = np.loadtxt("pop2020.asc", skiprows=6)
 
 w = 2058 
 h = 1036
-img = mpimg.imread('map.jpg')
-imgplot = plt.imshow(img)
-ax = plt.gca()
 
-'''
-def interpolate(val, y0, y1):
-  return (val) * (y1-y0) + y0;
+ax = None
+
 colors = [[44, 22, 65],
           [73, 32, 90],
           [104, 41, 107],
@@ -30,45 +27,55 @@ colors = [[44, 22, 65],
           [229, 172, 147],
           [232, 196, 164]]
 
-m = np.log10(np.max(grid))
-la = []
-lo = []
-co = []
-I, J = grid.shape
-for i in range(I):
-    for j in range(J):
-        lo.append(i/I * h)
-        la.append(j/J * w)
-        if grid[i, j] <= 0:
-            co.append('white')
-        else:
-            partial = (np.log10(grid[i, j]) / m) * len(colors)
-            index = int(np.floor(partial)) 
-            partial = partial - index
-            if index >= len(colors) - 1:
-                index = len(colors) - 1
-                bottom = colors[index]
-                top = colors[index]
+def loadmap():
+    ''' Load the map image.
+    '''
+    img = mpimg.imread('map.jpg')
+    imgplot = plt.imshow(img)
+    global ax 
+    ax = plt.gca()
+
+def interpolate(val, y0, y1):
+  return (val) * (y1-y0) + y0;
+
+def popmap():
+    ''' Plot the population data fom pop2020.asc to heat map.
+    '''
+    m = np.log10(np.max(grid))
+    la = []
+    lo = []
+    co = []
+    I, J = grid.shape
+    for i in range(I):
+        for j in range(J):
+            lo.append(i/I * h)
+            la.append(j/J * w)
+            if grid[i, j] <= 0:
+                co.append('white')
             else:
-                bottom = colors[index]
-                top = colors[index + 1]
-            r = hex(int(interpolate(partial, bottom[0], top[0])))[2:]
-            if len(r) == 1:
-                r = '0' + r
-            g = hex(int(interpolate(partial, bottom[1], top[1])))[2:]
-            if len(g) == 1:
-                g = '0' + g
-            b = hex(int(interpolate(partial, bottom[2], top[2])))[2:]
-            if len(b) == 1:
-                b = '0' + b
-            fill = f'#{r}{g}{b}'
-            co.append(fill)
+                partial = (np.log10(grid[i, j]) / m) * len(colors)
+                index = int(np.floor(partial)) 
+                partial = partial - index
+                if index >= len(colors) - 1:
+                    index = len(colors) - 1
+                    bottom = colors[index]
+                    top = colors[index]
+                else:
+                    bottom = colors[index]
+                    top = colors[index + 1]
+                r = hex(int(interpolate(partial, bottom[0], top[0])))[2:]
+                if len(r) == 1:
+                    r = '0' + r
+                g = hex(int(interpolate(partial, bottom[1], top[1])))[2:]
+                if len(g) == 1:
+                    g = '0' + g
+                b = hex(int(interpolate(partial, bottom[2], top[2])))[2:]
+                if len(b) == 1:
+                    b = '0' + b
+                fill = f'#{r}{g}{b}'
+                co.append(fill)
+    plt.scatter(x=la, y=lo, color=co, marker='s', s=10.)
 
-
-plt.scatter(x=la, y=lo, color=co, marker='s', s=10.)
-'''
-
-#print(grid)
 
 def coverage(altitude, aoe):
     ''' Given an altitude (km) and an angle of elevation (deg), return 
@@ -94,30 +101,27 @@ def coverage(altitude, aoe):
     # calculate radius
     radius = np.sqrt(area / np.pi) 
 
-    print('area', area)
-    print(radius)
     return coverage, area, radius
 
 def popat(lat, lon):
+    ''' Return the population data at a lat, lon.
+    '''
     A, O = grid.shape
-    # print( grid.shape)
-
     la = [ (-lat * (h / 180)) + (h / 2)]
     lo = [ (lon * (w / 360)) + (w / 2)]
-
-    # print(A / 180., O / 360.)
-
     lat = int((-lat * (A / 180)) + (A / 2))
     lon = int((lon * (O / 360)) + (O / 2))
-
     plt.scatter(x=lo, y=la, color='red', marker='+', s=8.)
 
     return grid[lat, lon]
 
 
-def popin(latitude, longitude, radius):
+def fov(latitude, longitude, radius):
+    ''' Plot a satellite field of view properly with equirectengluar 
+    projection. 
+    '''
+    # This is the magic for the map projection.
     A, O = grid.shape
-
     la1 = 110.574
     lo1 = 111.320 * np.cos(np.radians(latitude))
 
@@ -141,14 +145,13 @@ def popin(latitude, longitude, radius):
 
     erim = Ellipse(xy=(lo[0], la[0]), width=width, height=height, 
                         edgecolor='black', fc='None', lw=0.5)
-    # efill = Ellipse(xy=(lo[0], la[0]), width=width, height=height, 
-    #                     fc='r', lw=0., alpha=0.1)
     ax.add_patch(erim)
-    # ax.add_patch(efill)
-
     return grid[lat, lon]    
 
-def popin_(latitude, longitude, radius):
+def popin(latitude, longitude, radius):
+    ''' Return the total population below a satellite at a given lat and
+    lon.
+    '''
     A, O = grid.shape
 
     la1 = 110.574
@@ -174,20 +177,10 @@ def popin_(latitude, longitude, radius):
 
 c, a, r = coverage(550, 40)
 
-print(c)
-print(a)
-print(r)
-
-# popat(40.712776, -74.005974)
-# popat(35.689487, 139.691711)
-# popin(0., 0., 100)
-
-pop = popin_(40.712776, -74.005974, r)
-print(pop)
-
-# popin(80, -74.005974, r)
-
 def plot_popovertime():
+    ''' Plot population under 1 satellite in each plane on the same 
+    altitude over the course of one orbit.
+    '''
     con = 360. / 72 
     raan = 0
     for i in range(72):
@@ -207,7 +200,7 @@ def plot_popovertime():
             longitude = str(body.sublong)
             latitude = sum(float(x) / 60 ** n for n, x in enumerate(latitude[:-1].split(':')))
             longitude = sum(float(x) / 60 ** n for n, x in enumerate(longitude[:-1].split(':')))
-            pop = popin_(latitude, longitude, r)
+            pop = popin(latitude, longitude, r)
             pop = np.log10(pop)
             if pop < 0:
                 pop = 0
@@ -216,6 +209,9 @@ def plot_popovertime():
         plt.scatter(x, y, s=3, c='black')
         
 def plot_avgpopovertime():
+    ''' Plot average population under 1 satellite in each plane on the
+    same altitude over the course of one orbit.
+    '''
     con = 360. / 72 
     raan = 0
     x = [i for i in range(100)]
@@ -235,17 +231,16 @@ def plot_avgpopovertime():
             longitude = str(body.sublong)
             latitude = sum(float(x) / 60 ** n for n, x in enumerate(latitude[:-1].split(':')))
             longitude = sum(float(x) / 60 ** n for n, x in enumerate(longitude[:-1].split(':')))
-            pop = popin_(latitude, longitude, r)
-            # pop = np.log10(pop)
-            # if pop < 0:
-            #    pop = 0
+            pop = popin(latitude, longitude, r)
             y[j] += pop
     y = [i / 72 for i in y]
     plt.plot(x, y, c='black')
 
 def plot_kaorbits():
-
-
+    ''' Plot the KA band orbits used it SpaceX's Gen1 Starlink
+    constellation.
+    NOTE: This function is terribly messy. 
+    '''
     res_lat = []
     res_lon = []
 
@@ -299,78 +294,31 @@ def plot_kaorbits():
             prior = longitude
             priorlat = latitude
 
-            popin(latitude, longitude, r)
+            fov(latitude, longitude, r)
     return res_lat, res_lon
 
-def plot_kuorbits():
-    con = 360. / 22 
-    raan = 2.5
-    la = []
-    lo = []
-    for i in range(72):
-        M = con * 13.25 if i % 2 else con * 13.75
-        la = []
-        lo = []
-        prior = 0.
-        priorlat = 0
-        raan += 5
-        for j in range(22):
-            body = EarthSatellite() 
-            body._epoch = dt
-            body._inc = 53.2
-            body._e = 0.00001
-            body._ap = 180
-            body._raan = raan
-            body._M = M
-            body._n = 15.05
-            body.compute(dt - timedelta(hours=2, minutes=15))
-            M += 360. / 22
-            latitude = str(body.sublat)
-            longitude = str(body.sublong)
-            latitude = sum(float(x) / 60 ** n for n, x in enumerate(latitude[:-1].split(':')))
-            longitude = sum(float(x) / 60 ** n for n, x in enumerate(longitude[:-1].split(':')))
-
-            if longitude < prior:
-                lo = []
-                la = []
-
-            if latitude < priorlat and priorlat > 0:
-                la.append(((latitude * (h / 180)) + (h / 2)))
-                lo.append(((longitude * (w / 360)) + (w / 2)))
-                plt.plot(lo, la, color='black', linewidth=1, linestyle='--')
-                lo = []
-                la = []
-                break
-
-            prior = longitude
-            priorlat = latitude
-
-            popin(latitude, longitude, r)
-            la.append(((latitude * (h / 180)) + (h / 2)))
-            lo.append(((longitude * (w / 360)) + (w / 2)))
-
 def plot_plusgrid(lats, lons):
-
-    for i in range(len(lats) ):
+    ''' Given 2D lists of lats and lons, plot the them in the +Grid 
+    configuration.
+    '''
+    for i in range(len(lats)):
         for j in range(len(lats[i]) - 1):
-
+            # Ignore where they would wrap around the map.
             if lons[i][j] > 100 and lons[i][j] < 1900:
-                
                 linex = [lons[i][j], lons[(i + 1) % len(lats)][j]]
                 liney = [lats[i][j], lats[(i + 1) % len(lats)][j]]
                 plt.plot(linex, liney, color='red', linewidth=1)
-
                 linex = [lons[i][j], lons[i][j + 1]]
                 liney = [lats[i][j], lats[i][j + 1]]
                 plt.plot(linex, liney, color='red', linewidth=1)
 
 def plot_crossgrid(lats, lons):
-
+    ''' Given 2D lists of lats and lons, plot the them in the xGrid 
+    configuration.
+    '''
     for i in range(1, len(lats) - 2):
         for j in range(len(lats[i]) - 1):
-
             if lons[i][j] > 100 and lons[i][j] < 1900:
-
                 if i % 2:
                     linex = [lons[i + 1][j], lons[i - 1][j]]
                     liney = [lats[i + 1][j], lats[i - 1][j]]
@@ -379,7 +327,6 @@ def plot_crossgrid(lats, lons):
                     linex = [lons[i][j], lons[i + 1][j]]
                     liney = [lats[i][j], lats[i + 1][j]]
                     plt.plot(linex, liney, color='red', linewidth=1)
-
                 if i % 2:
                     linex = [lons[i][j], lons[i + 2][j]]
                     liney = [lats[i][j], lats[i + 2][j]]
@@ -389,12 +336,37 @@ def plot_crossgrid(lats, lons):
                     liney = [lats[i][j], lats[i - 1][j + 1]]
                     plt.plot(linex, liney, color='red', linewidth=1)
 
-satlat, satlon = plot_kaorbits()
+def main():
+    if len(sys.argv) < 2:
+        exit(-1)
+    viz = sys.argv[1]
+    if viz == '+grid':
+        loadmap()
+        satlat, satlon = plot_kaorbits()
+        plot_plusgrid(satlat, satlon)
+        plt.show()
+    elif viz == 'xgrid':
+        loadmap()
+        satlat, satlon = plot_kaorbits()
+        plot_crossgrid(satlat, satlon)
+        plt.show()
+    elif viz == 'xgrid':
+        loadmap()
+        satlat, satlon = plot_kaorbits()
+        plot_crossgrid(satlat, satlon)
+        plt.show()
+    elif viz == 'pop':
+        plot_popovertime()
+        plt.show()
+    elif viz == 'avgpop':
+        plot_avgpopovertime()
+        plt.show()
+    elif viz == 'popmap':
+        loadmap()
+        popmap()
+        plt.show()
+    else:
+        print('python3 viz.py <option>')
 
-# plot_plusgrid(satlat, satlon)
-
-# plot_kuorbits()
-# plot_avgpopovertime()
-print('show')
-plt.show()
-
+if __name__ == '__main__':
+    main()
